@@ -34,8 +34,9 @@ Copy `.env.example` to `.env` and adjust. All variables are optional (sane defau
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
-| `PORT` | `4000` | HTTP port for the API server (dev proxy also uses this). |
+| `PORT` | `4000` | HTTP port for the API server (dev proxy also uses this; Render injects this automatically). |
 | `NODE_ENV` | `development` | Set to `production` for the production server. |
+| `HOST` | `0.0.0.0` | Interface the server binds to (required on Render/containers). |
 | `DATABASE_PATH` | `./data/mystudio.db` | Location of the SQLite database file. |
 | `UPLOADS_DIR` | `./uploads` | Directory where uploaded images are stored. |
 | `PUBLIC_URL` | `http://localhost:5173` | Public base URL used when building password-reset links. |
@@ -65,6 +66,51 @@ The primary admin can be recreated/reset with:
 ```bash
 npm run create-admin -- --email admin@mystudio.rw --password YourPassword --name "Your Name" --force
 ```
+
+## Deployment on Render
+
+This repository deploys a single **Web Service**: the Express server serves the built React frontend (`dist/`) and the REST API together, so no separate static host is required.
+
+### Render settings
+
+- **Environment**: Node
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
+- **Instance Type**: Free tier is fine for evaluation; production workloads need a paid instance.
+
+### Environment variables on Render
+
+Set these in the Render dashboard (Environment panel). `PORT` is injected automatically — do **not** set it manually.
+
+| Variable | Value / Notes |
+| -------- | ------------- |
+| `NODE_ENV` | `production` |
+| `HOST` | `0.0.0.0` |
+| `PUBLIC_URL` | Your live URL, e.g. `https://your-app.onrender.com` |
+| `DATABASE_PATH` | Persistent path, e.g. `/var/data/mystudio.db` (see below) |
+| `UPLOADS_DIR` | Persistent path, e.g. `/var/data/uploads` |
+| `SMTP_HOST` | Optional (only if you want emailed password-reset links) |
+| `SMTP_PORT` | Optional |
+| `SMTP_USER` | Optional |
+| `SMTP_PASS` | Optional |
+| `SMTP_FROM` | Optional |
+
+### Persistent storage (important)
+
+The SQLite database and uploaded images are written to local disk, which is **ephemeral** on Render (wiped on redeploy). To keep data between deploys:
+
+1. Attach a **persistent disk** to the Web Service (Render → Service → Disks). Mount it at a path such as `/var/data`.
+2. Point the env vars at it: `DATABASE_PATH=/var/data/mystudio.db`, `UPLOADS_DIR=/var/data/uploads`.
+
+Note: SQLite does not support multiple concurrent server instances against the same file — keep a single Web Service instance.
+
+### React Router deep links
+
+`npm start` runs the production server, which serves the SPA with a fallback to `index.html` for non-API GET routes (handled in `server/index.ts`). Direct visits to routes such as `/news/some-slug` therefore work correctly.
+
+### Health check
+
+`GET /api/health` returns `200 {"ok":true}` and can be used as the Render health-check path.
 
 ## Relation to the Vite template
 

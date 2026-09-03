@@ -58,6 +58,8 @@ if (config.isProduction) {
 app.use(notFoundHandler)
 app.use(errorHandler)
 
-app.listen(config.port, () => {
-  console.log(`[server] MyStudioTV231 API running on http://localhost:${config.port}`)
+app.listen(config.port, config.host, () => {
+  console.log(
+    `[server] MyStudioTV231 API running on http://${config.host}:${config.port}`,
+  )
 })

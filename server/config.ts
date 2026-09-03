@@ -8,6 +8,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProduction: IS_PRODUCTION,
   port: Number(process.env.PORT ?? 4000),
+  host: process.env.HOST ?? '0.0.0.0',
   databasePath:
     process.env.DATABASE_PATH ??
     path.join(process.cwd(), 'data', 'mystudio.db'),
