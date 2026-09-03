@@ -104,9 +104,9 @@ function serializeCookie(
     'Path=/',
     `Max-Age=${maxAgeSeconds}`,
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${config.cookieSameSite}`,
   ]
-  if (config.isProduction) parts.push('Secure')
+  if (config.cookieSecure) parts.push('Secure')
   return parts.join('; ')
 }
 

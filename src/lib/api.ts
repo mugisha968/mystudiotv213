@@ -1,3 +1,26 @@
+const DEFAULT_API_URL =
+  import.meta.env.PROD
+    ? 'https://mystudiotv213.onrender.com'
+    : 'http://localhost:4000'
+
+export const API_BASE_URL: string = (
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') ||
+  DEFAULT_API_URL
+)
+
+/**
+ * Resolve a possibly-relative media path (e.g. `/uploads/article-images/...`)
+ * against the API origin. In production the frontend is served from a
+ * different host than the backend, so relative `/uploads` paths must be
+ * pointed at the Render origin. Absolute URLs are passed through unchanged.
+ */
+export function resolveMediaUrl(path?: string | null): string {
+  if (!path) return ''
+  if (/^https?:\/\//.test(path)) return path
+  if (path.startsWith('/')) return `${API_BASE_URL}${path}`
+  return path
+}
+
 export class ApiError extends Error {
   status: number
   code: string
@@ -17,8 +40,8 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(path, {
-    credentials: 'same-origin',
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: 'include',
     ...options,
     headers: {
       ...(options.body && !(options.body instanceof FormData)

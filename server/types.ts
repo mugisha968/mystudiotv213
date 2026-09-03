@@ -6,7 +6,15 @@ export const ACCOUNT_STATUSES = ['active', 'inactive', 'pending'] as const
 
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number]
 
-export const ARTICLE_STATUSES = ['draft', 'published', 'archived'] as const
+export const ARTICLE_STATUSES = [
+  'draft',
+  'pending_review',
+  'approved',
+  'rejected',
+  'scheduled',
+  'published',
+  'archived',
+] as const
 
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number]
 
@@ -71,16 +79,25 @@ export interface ArticleRow {
   views: number
   tags: string
   published_at: string | null
+  scheduled_at: string | null
+  submitted_at: string | null
+  reviewed_by: number | null
+  reviewed_at: string | null
+  reject_reason: string | null
   created_at: string
   updated_at: string
 }
 
 export interface ArticleWithRelations
-  extends Omit<ArticleRow, 'images' | 'featured' | 'tags' | 'breaking_news'> {
+  extends Omit<
+    ArticleRow,
+    'images' | 'featured' | 'tags' | 'breaking_news' | 'reviewed_by'
+  > {
   images: string[]
   featured: boolean
   breaking_news: boolean
   tags: string[]
+  reviewed_by: Partial<ArticleAuthor> | null
   author: ArticleAuthor
   category: ArticleCategory | null
 }

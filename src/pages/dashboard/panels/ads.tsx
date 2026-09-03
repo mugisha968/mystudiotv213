@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { useAction } from '@/hooks/useAction'
 import { useAsync } from '@/hooks/useAsync'
 import { advertisementsApi } from '@/lib/services'
+import { resolveMediaUrl } from '@/lib/api'
 import type { Advertisement, AdvertisementInput, AdSlot, AdType } from '@/types'
 import { AD_SLOTS, AD_TYPES } from '@/types'
 import { InlineError, LoadingBlock, PanelError, Section } from './common'
@@ -179,7 +180,7 @@ export function AdsPanel() {
                         </div>
                       ) : ad.image_url ? (
                         <img
-                          src={ad.image_url}
+                          src={resolveMediaUrl(ad.image_url)}
                           alt={ad.title}
                           className="mt-2 h-16 w-full rounded object-contain bg-ink-50"
                         />

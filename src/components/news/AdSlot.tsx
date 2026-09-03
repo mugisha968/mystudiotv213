@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AdSlot as AdSlotType } from '@/types'
 import { useAsync } from '@/hooks/useAsync'
 import { advertisementsApi } from '@/lib/services'
+import { resolveMediaUrl } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface AdSlotProps {
@@ -126,7 +127,7 @@ export function AdSlot({ slot, className, label = true }: AdSlotProps) {
           )}
         >
           <img
-            src={ad.image_url}
+            src={resolveMediaUrl(ad.image_url)}
             alt={ad.title}
             className="h-full w-full object-contain"
           />
@@ -139,7 +140,7 @@ export function AdSlot({ slot, className, label = true }: AdSlotProps) {
           )}
         >
           <img
-            src={ad.image_url}
+            src={resolveMediaUrl(ad.image_url)}
             alt={ad.title}
             className="h-full w-full object-contain"
           />

@@ -24,6 +24,30 @@ const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
 
+// CORS for the credentialed (cookie) cross-site setup: Vercel frontend -> Render API.
+const allowedOrigins = new Set(config.corsOrigins)
+app.use((req, res, next) => {
+  const origin = req.headers.origin
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    )
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization',
+    )
+  }
+  if (req.method === 'OPTIONS') {
+    res.status(204).end()
+    return
+  }
+  next()
+})
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
 })

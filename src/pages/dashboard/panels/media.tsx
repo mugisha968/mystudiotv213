@@ -6,6 +6,7 @@ import { ImageUploader } from '@/components/ui/ImageUploader'
 import { useAsync } from '@/hooks/useAsync'
 import { useAction } from '@/hooks/useAction'
 import { uploadsApi } from '@/lib/services'
+import { resolveMediaUrl } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import type { MediaItem } from '@/types'
 import { InlineError, LoadingBlock, PanelError, Section } from './common'
@@ -49,7 +50,7 @@ export function MediaPanel() {
             {media.map((item) => (
               <li key={item.url} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
                 <img
-                  src={item.url}
+                  src={resolveMediaUrl(item.url)}
                   alt=""
                   className="h-14 w-20 shrink-0 rounded-md object-cover ring-1 ring-ink-200"
                 />

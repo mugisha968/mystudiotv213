@@ -35,7 +35,15 @@ export const articlesRouter = Router()
 
 const MAX_LIMIT = 50
 
-const VALID_STATUSES: ArticleStatus[] = ['draft', 'published', 'archived']
+const VALID_STATUSES: ArticleStatus[] = [
+  'draft',
+  'pending_review',
+  'approved',
+  'rejected',
+  'scheduled',
+  'published',
+  'archived',
+]
 
 function asQuery(req: Request): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {}
@@ -148,7 +156,66 @@ function parseArticleInput(body: unknown, partial: boolean): Partial<ArticleRow>
     data.youtube_url = url
   }
 
+  if (input.scheduled_at !== undefined) {
+    data.scheduled_at = parseScheduledAt(input.scheduled_at)
+  }
+
   return data
+}
+
+function parseScheduledAt(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value !== 'string') {
+    throw new ApiError(400, 'invalid_request', 'scheduled_at must be an ISO date string')
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new ApiError(400, 'invalid_request', 'scheduled_at must be a valid date')
+  }
+  if (date.getTime() <= Date.now()) {
+    throw new ApiError(
+      400,
+      'invalid_request',
+      'scheduled_at must be in the future',
+    )
+  }
+  return date.toISOString()
+}
+
+// Canonical workflow transitions. `target` may be null to forbid an exit state.
+const WORKFLOW: Record<ArticleStatus, Partial<Record<ArticleStatus, boolean>>> = {
+  draft: { pending_review: true },
+  pending_review: { approved: true, rejected: true, draft: true },
+  approved: { pending_review: true, scheduled: true, published: true, draft: true },
+  rejected: { pending_review: true, draft: true },
+  scheduled: { pending_review: true, published: true, draft: true },
+  published: { draft: true, archived: true },
+  archived: { draft: true, published: true },
+}
+
+// Journalists may drive their own workflow only up to submission; staff
+// (admin/manager) may additionally approve, reject, schedule and publish.
+function isStaffRole(role: string): boolean {
+  return role === 'admin' || role === 'manager'
+}
+
+export function canTransition(
+  current: ArticleStatus,
+  next: ArticleStatus,
+  role: string,
+): boolean {
+  const allowed = WORKFLOW[current]?.[next]
+  if (!allowed) return false
+  if (isStaffRole(role)) return true
+  // Staff-gated transitions below require an admin/manager.
+  const staffOnly: Record<string, true> = {
+    approved: true,
+    rejected: true,
+    scheduled: true,
+    published: true,
+    archived: true,
+  }
+  return !staffOnly[next]
 }
 
 function parseStatusInput(value: unknown): ArticleStatus | undefined {
@@ -166,7 +233,11 @@ function serializeOne(row: ArticleRow): ArticleWithRelations {
   const category = row.category_id
     ? (db.prepare('select * from categories where id = ?').get(row.category_id) as CategoryRow | undefined)
     : undefined
-  return serializeArticle(row, author, category)
+  const reviewer =
+    row.reviewed_by !== null
+      ? (db.prepare('select * from profiles where id = ?').get(row.reviewed_by) as ProfileRow | undefined)
+      : null
+  return serializeArticle(row, author, category, reviewer)
 }
 
 articlesRouter.get('/', (req, res) => {
@@ -368,16 +439,26 @@ articlesRouter.post(
 
     const statusInput = parseStatusInput((req.body as Record<string, unknown>)?.status)
     const status = statusInput ?? 'draft'
+    if (status !== 'draft' && status !== 'pending_review') {
+      throw new ApiError(
+        400,
+        'invalid_request',
+        'New articles may only be created as a draft or submitted for review',
+      )
+    }
 
-    const publishedAt = status === 'published' ? sqlNow() : null
+    const publishedAt = null
+    const submittedAt = status === 'pending_review' ? sqlNow() : null
+    const scheduledAt = null
     const categoryId = data.category_id ?? null
 
     const info = db
       .prepare(
         `insert into articles
            (author_id, category_id, title, slug, content, featured_image, images,
-            youtube_url, article_language, status, tags, published_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            youtube_url, article_language, status, tags, published_at,
+            scheduled_at, submitted_at)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         authorId,
@@ -392,6 +473,8 @@ articlesRouter.post(
         status,
         data.tags ?? '[]',
         publishedAt,
+        scheduledAt,
+        submittedAt,
       )
 
     const row = db
@@ -432,6 +515,7 @@ articlesRouter.put(
       'category_id',
       'images',
       'tags',
+      'scheduled_at',
     ] as const) {
       if (data[column] !== undefined) {
         fields.push(`${column} = ?`)
@@ -444,15 +528,67 @@ articlesRouter.put(
       params.push(uniqueSlug(slugify(data.title), row.id))
     }
 
-    if (statusInput) {
+    // Status transitions are validated against the CURRENT database status,
+    // never against a status supplied by the client. Only the owner or staff
+    // may drive the workflow (see requireArticleAccess + canTransition).
+    if (statusInput && statusInput !== row.status) {
+      if (!canTransition(row.status, statusInput, user.role)) {
+        throw new ApiError(
+          400,
+          'invalid_transition',
+          `Cannot change an article from "${row.status}" to "${statusInput}"`,
+        )
+      }
+
       fields.push('status = ?')
       params.push(statusInput)
-      if (statusInput === 'published' && !row.published_at) {
-        fields.push('published_at = ?')
+
+      // Audit timestamps for each stage of the workflow.
+      if (statusInput === 'pending_review') {
+        fields.push('submitted_at = ?')
         params.push(sqlNow())
+        fields.push('reject_reason = null')
       }
-      if (statusInput !== 'published') {
-        fields.push('published_at = null')
+      if (statusInput === 'approved') {
+        fields.push('reviewed_by = ?')
+        fields.push('reviewed_at = ?')
+        params.push(user.id, sqlNow())
+        fields.push('submitted_at = ?')
+        if (row.submitted_at == null) params.push(sqlNow())
+        else params.push(row.submitted_at)
+      }
+      if (statusInput === 'rejected') {
+        fields.push('reviewed_by = ?')
+        fields.push('reviewed_at = ?')
+        params.push(user.id, sqlNow())
+        const reason = asOptionalString(
+          (req.body as Record<string, unknown>)?.reject_reason,
+          'reject_reason',
+          400,
+        )
+        fields.push('reject_reason = ?')
+        params.push(reason)
+      }
+      if (statusInput === 'scheduled') {
+        if (!row.scheduled_at && !data.scheduled_at) {
+          throw new ApiError(
+            400,
+            'invalid_request',
+            'A future scheduled_at date is required when scheduling an article',
+          )
+        }
+      }
+      if (statusInput === 'published') {
+        fields.push('published_at = ?')
+        if (row.published_at) params.push(row.published_at)
+        else params.push(sqlNow())
+        fields.push('scheduled_at = null')
+        fields.push('submitted_at = ?')
+        if (row.submitted_at == null) params.push(sqlNow())
+        else params.push(row.submitted_at)
+      }
+      if (statusInput === 'draft') {
+        fields.push('scheduled_at = null')
       }
     }
 

@@ -41,15 +41,24 @@ export function queryArticles(query: ArticleQuery): ArticleWithRelations[] {
         .filter((id): id is number => id !== null),
     ),
   ]
+  const reviewerIds = [
+    ...new Set(
+      rows
+        .map((row) => row.reviewed_by)
+        .filter((id): id is number => id !== null),
+    ),
+  ]
 
   const authors = fetchProfilesByIds(authorIds)
   const categories = fetchCategoriesByIds(categoryIds)
+  const reviewers = fetchProfilesByIds(reviewerIds)
 
   return rows.map((row) =>
     serializeArticle(
       row,
       authors.get(row.author_id),
       row.category_id !== null ? categories.get(row.category_id) : undefined,
+      row.reviewed_by !== null ? reviewers.get(row.reviewed_by) : null,
     ),
   )
 }

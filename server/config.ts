@@ -4,6 +4,39 @@ import path from 'node:path'
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 
+function parseOrigins(value: string | undefined): string[] {
+  if (!value) return []
+  return value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Origins allowed to call this API with credentials (cookies). Never use `*`
+ * when credentials are involved. Defaults to the Vercel frontend plus local
+ * development origins so both production and local dev work out of the box.
+ * Override entirely with the CORS_ORIGINS environment variable.
+ */
+const DEFAULT_CORS_ORIGINS = [
+  'https://mystudiotv.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+]
+
+function resolveSameSite(): 'none' | 'lax' | 'strict' {
+  const value = (process.env.COOKIE_SAMESITE ?? '').toLowerCase()
+  if (value === 'none' || value === 'lax' || value === 'strict') return value
+  // Cross-site (frontend on Vercel, API on Render) requires SameSite=None so
+  // the session cookie is sent with credentialed fetch requests. In dev the
+  // Vite proxy keeps everything same-origin, where Lax is stronger.
+  return IS_PRODUCTION ? 'none' : 'lax'
+}
+
+const sameSite = resolveSameSite()
+
 export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   isProduction: IS_PRODUCTION,
@@ -17,6 +50,11 @@ export const config = {
   resetTokenTtlHours: Number(process.env.RESET_TOKEN_TTL_HOURS ?? 1),
   publicUrl: process.env.PUBLIC_URL ?? 'http://localhost:5173',
   cookieName: 'mystudio_session',
+  cookieSameSite: sameSite,
+  cookieSecure: IS_PRODUCTION || sameSite === 'none',
+  corsOrigins: parseOrigins(process.env.CORS_ORIGINS).length
+    ? parseOrigins(process.env.CORS_ORIGINS)
+    : DEFAULT_CORS_ORIGINS,
   smtp: {
     enabled: Boolean(process.env.SMTP_HOST),
     host: process.env.SMTP_HOST,

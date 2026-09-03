@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { resolveMediaUrl } from '@/lib/api'
 
 interface AvatarProps {
   src?: string | null
@@ -31,7 +32,11 @@ export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
       )}
     >
       {src ? (
-        <img src={src} alt={name} className="h-full w-full object-cover" />
+        <img
+          src={resolveMediaUrl(src)}
+          alt={name}
+          className="h-full w-full object-cover"
+        />
       ) : (
         initials
       )}

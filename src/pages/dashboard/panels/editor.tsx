@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { useAction } from '@/hooks/useAction'
 import { useAsync } from '@/hooks/useAsync'
 import { articlesApi, categoriesApi } from '@/lib/services'
+import { resolveMediaUrl } from '@/lib/api'
 import { slugify } from '@/lib/utils'
 import type {
   Article,
@@ -116,7 +117,7 @@ export function ArticleForm({ article, onSaved, submitLabel }: ArticleFormProps)
             <div className="space-y-2">
               {form.images.map((image, index) => (
                 <div key={`${image}-${index}`} className="flex items-center gap-2">
-                  <img src={image} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                  <img src={resolveMediaUrl(image)} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
                   <span className="truncate text-xs text-ink-500">{image}</span>
                   <Button
                     variant="ghost"

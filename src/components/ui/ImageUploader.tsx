@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { uploadsApi } from '@/lib/services'
+import { resolveMediaUrl } from '@/lib/api'
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml']
 const MAX_BYTES = 5 * 1024 * 1024
@@ -48,7 +49,7 @@ export function ImageUploader({ dest, onUploaded, value, className }: ImageUploa
       <div className="flex flex-wrap items-center gap-3">
         {value && (
           <img
-            src={value}
+            src={resolveMediaUrl(value)}
             alt=""
             className={
               dest === 'avatar'

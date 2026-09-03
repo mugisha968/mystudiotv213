@@ -7,7 +7,6 @@ import type {
   ProfileRow,
   PublicProfile,
 } from '../types.js'
-
 export function parseTags(tags: string): string[] {
   try {
     const parsed: unknown = JSON.parse(tags)
@@ -65,6 +64,7 @@ export function serializeArticle(
   row: ArticleRow,
   author: ProfileRow | undefined,
   category: CategoryRow | undefined,
+  reviewer?: ProfileRow | null,
 ): ArticleWithRelations {
   const fallbackAuthor = (id: number): ArticleAuthor => ({
     id,
@@ -95,6 +95,11 @@ export function serializeArticle(
     views: row.views,
     tags: parseTags(row.tags),
     published_at: row.published_at,
+    scheduled_at: row.scheduled_at,
+    submitted_at: row.submitted_at,
+    reviewed_at: row.reviewed_at,
+    reject_reason: row.reject_reason,
+    reviewed_by: reviewer ? toArticleAuthor(reviewer) : null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     author: author ? toArticleAuthor(author) : fallbackAuthor(row.author_id),

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { resolveMediaUrl } from '@/lib/api'
 
 export function CoverImage({
   src,
@@ -11,7 +12,8 @@ export function CoverImage({
   className?: string
   fit?: 'cover' | 'contain'
 }) {
-  if (!src) {
+  const resolved = resolveMediaUrl(src)
+  if (!resolved) {
     return (
       <div
         aria-hidden="true"
@@ -42,7 +44,7 @@ export function CoverImage({
 
   return (
     <img
-      src={src}
+      src={resolved}
       alt={alt}
       loading="lazy"
       decoding="async"
