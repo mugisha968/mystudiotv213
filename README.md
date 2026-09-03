@@ -104,6 +104,14 @@ The SQLite database and uploaded images are written to local disk, which is **ep
 
 Note: SQLite does not support multiple concurrent server instances against the same file — keep a single Web Service instance.
 
+The seeded development users (Admin/Manager/Journalist) exist only in the checked-in-excluded local `data/mystudio.db` and are **not** copied to Render. After attaching the disk, recreate the admin on the persistent database with:
+
+```bash
+npm run create-admin -- --email admin@mystudio.rw --password YourPassword --name "Your Name" --force
+```
+
+Use the role-management API (or a temporary manager/journalist created the same way following `server/routes/managers.ts`) to provision additional roles once the admin exists.
+
 ### React Router deep links
 
 `npm start` runs the production server, which serves the SPA with a fallback to `index.html` for non-API GET routes (handled in `server/index.ts`). Direct visits to routes such as `/news/some-slug` therefore work correctly.
